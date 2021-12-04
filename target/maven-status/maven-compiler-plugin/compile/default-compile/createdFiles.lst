@@ -1,0 +1,7 @@
+com\app\suscripciones\clients\EstadisticaFeignClient.class
+com\app\suscripciones\repository\SuscripcionesRepository.class
+com\app\suscripciones\AppSuscripcionesApplication.class
+com\app\suscripciones\config\SwaggerConfiguration.class
+com\app\suscripciones\controllers\SuscripcionesController.class
+com\app\suscripciones\models\Suscripciones.class
+com\app\suscripciones\clients\NotificacionesFeignClient.class
