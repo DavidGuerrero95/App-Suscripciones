@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,7 +25,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.app.suscripciones.clients.EstadisticaFeignClient;
 import com.app.suscripciones.clients.NotificacionesFeignClient;
 import com.app.suscripciones.models.Suscripciones;
+import com.app.suscripciones.repository.ComentariosRepository;
 import com.app.suscripciones.repository.SuscripcionesRepository;
+import com.app.suscripciones.request.Comentarios;
 
 @RestController
 public class SuscripcionesController {
@@ -42,6 +46,9 @@ public class SuscripcionesController {
 
 	@Autowired
 	NotificacionesFeignClient nClient;
+	
+	@Autowired
+	ComentariosRepository cRepository;
 
 	@PostMapping("/suscripciones/crear/")
 	@ResponseStatus(code = HttpStatus.CREATED)
@@ -53,7 +60,6 @@ public class SuscripcionesController {
 			s.setCuestionarios(new ArrayList<String>());
 			s.setLike(new ArrayList<String>());
 			s.setDislike(new ArrayList<String>());
-			s.setComentarios(new ArrayList<List<String>>());
 			sRepository.save(s);
 			if (cbFactory.create("suscripciones").run(() -> nClient.crearSuscripciones(s), e -> errorConexion(e))) {
 				logger.info("Creacion Correcta");
@@ -75,6 +81,16 @@ public class SuscripcionesController {
 			return sRepository.findByNombre(nombre);
 		} catch (Exception e) {
 			throw new IOException("error obtener suscripciones, suscripciones: " + e.getMessage());
+		}
+	}
+	
+	@GetMapping("/suscripciones/obtener/comentarios/nombre/{nombre}")
+	@ResponseStatus(code = HttpStatus.OK)
+	public List<Comentarios> obtenerComentariosNombre(@PathVariable("nombre") String nombre) throws IOException {
+		try {
+			return cRepository.findByNombre(nombre);
+		} catch (Exception e) {
+			throw new IOException("error obtener comentarios, suscripciones: " + e.getMessage());
 		}
 	}
 
@@ -137,15 +153,15 @@ public class SuscripcionesController {
 				sRepository.save(s);
 				if (cbFactory.create("suscripciones").run(() -> eClient.editarSuscripciones(s),
 						e -> errorConexion(e))) {
-					logger.info("Creacion Correcta");
+					logger.info("Edicion correcta suscripciones, estadistica");
 				}
 				if (cbFactory.create("suscripciones").run(() -> nClient.editarSuscripciones(s),
 						e -> errorConexion(e))) {
-					logger.info("Creacion Correcta");
+					logger.info("Edicion correcta suscripciones, notificaciones");
 				}
 				if (cbFactory.create("suscripciones").run(() -> eClient.obtenerEstadistica(nombre),
 						e -> errorConexion(e))) {
-					logger.info("Creacion Correcta");
+					logger.info("Obtencion Estadistica correcta");
 				}
 
 				return ResponseEntity.ok("Eliminar suscripcion de proyecto: " + nombre + " de manera Exitosa!");
@@ -156,110 +172,132 @@ public class SuscripcionesController {
 		}
 		return ResponseEntity.badRequest().body("Proyecto: " + nombre + " no existe");
 	}
-
-	@PutMapping("/suscripciones/comentarios/{nombre}")
+	
+	@PostMapping("/suscripciones/crear/comentarios/{nombre}")
 	@ResponseStatus(code = HttpStatus.OK)
-	public ResponseEntity<?> comentariosProyecto(@PathVariable("nombre") String nombre,
+	public ResponseEntity<?> crearComentario(@PathVariable("nombre") String nombre,
 			@RequestParam("username") String username, @RequestParam("anonimo") Boolean anonimo,
-			@RequestParam("comentario") String comentario) {
+			@RequestParam("fecha") String fecha, @RequestParam("tiempo") String tiempo,
+			@RequestParam("comentario") String comentario ){
 		if (sRepository.existsByNombre(nombre)) {
-			Suscripciones s = sRepository.findByNombre(nombre);
-			List<List<String>> listaComentarios = s.getComentarios();
-			List<String> usuarios = new ArrayList<String>();
-			
-			Calendar c = Calendar.getInstance();
+			Comentarios coment = new Comentarios();
+			if(fecha == null && tiempo == null) {
+				Calendar c = Calendar.getInstance();
 
-			String dia = Integer.toString(c.get(Calendar.DATE));
-			String mes = Integer.toString(c.get(Calendar.MONTH));
-			String annio = Integer.toString(c.get(Calendar.YEAR));
-			String fecha = dia + "/" + mes + "/" + annio;
+				String dia = Integer.toString(c.get(Calendar.DATE));
+				String mes = Integer.toString(c.get(Calendar.MONTH));
+				String annio = Integer.toString(c.get(Calendar.YEAR));
+				String date = dia + "/" + mes + "/" + annio;
 
-			Integer hora = c.get(Calendar.HOUR_OF_DAY);
-			Integer minutos = c.get(Calendar.MINUTE);
-			String tiempo = hora + ":" + minutos;
-			
-			usuarios.add(username);
-			usuarios.add(comentario);
-			if(anonimo) usuarios.add("true");
-			else usuarios.add("false");
-			usuarios.add(fecha);
-			usuarios.add(tiempo);
-			
-			listaComentarios.add(usuarios);
-			
-			sRepository.save(s);
-			if (cbFactory.create("suscripciones").run(() -> eClient.editarSuscripciones(s), e -> errorConexion(e))) {
-				logger.info("Creacion Correcta");
+				Integer hora = c.get(Calendar.HOUR_OF_DAY);
+				Integer minutos = c.get(Calendar.MINUTE);
+				String time = hora + ":" + minutos;
+				coment.setFecha(date);
+				coment.setTiempo(time);
+			} else {
+				coment.setFecha(fecha);
+				coment.setTiempo(tiempo);
 			}
-			if (cbFactory.create("suscripciones").run(() -> nClient.editarSuscripciones(s), e -> errorConexion(e))) {
-				logger.info("Creacion Correcta");
+			
+			coment.setAnonimo(anonimo);
+			coment.setNombreProyecto(nombre);
+			coment.setUsername(username);
+			coment.setComentario(comentario);
+			cRepository.save(coment);
+			if (cbFactory.create("suscripciones").run(() -> eClient.editarSuscripcionesComentarios(coment), e -> errorConexion(e))) {
+				logger.info("Comentario añadido correctamente, estadistica");
+			}
+			if (cbFactory.create("suscripciones").run(() -> nClient.editarSuscripcionesComentarios(coment), e -> errorConexion(e))) {
+				logger.info("Comentario añadido correctamente, notificaciones");
 			}
 			if (cbFactory.create("suscripciones").run(() -> eClient.obtenerEstadistica(nombre),
 					e -> errorConexion(e))) {
-				logger.info("Creacion Correcta");
+				logger.info("Obtencion Estadistica correcta");
 			}
-
 			return ResponseEntity.ok("Comentario añadido al proyecto: " + nombre + " de forma Exitosa!");
 		}
 		return ResponseEntity.badRequest().body("Proyecto: " + nombre + " no existe");
 	}
-
-	@GetMapping("/suscripciones/comentarios/ver/{nombre}")
-	@ResponseStatus(code = HttpStatus.OK)
-	public List<List<String>> verComentarios(@PathVariable("nombre") String nombre) {
-		if (sRepository.existsByNombre(nombre)) {
-			Suscripciones s = sRepository.findByNombre(nombre);
-			return s.getComentarios();
-		}
-		return null;
-	}
 	
-	@GetMapping("/suscripciones/comentarios/verificar/posicion/usuario/{nombre}")
+	@GetMapping("/suscripciones/ver/comentarios/{nombre}")
 	@ResponseStatus(code = HttpStatus.OK)
-	public List<Integer> verificarPosicionUsuario(@PathVariable("nombre") String nombre,
-			@RequestParam("username") String username){
+	public List<Comentarios> verTodosComentarios(@PathVariable("nombre") String nombre){
 		if (sRepository.existsByNombre(nombre)) {
-			List<Integer> listaPosicionComentarios = new ArrayList<Integer>();
-			Suscripciones suscripciones = sRepository.findByNombre(nombre);
-			List<List<String>> comentarios = suscripciones.getComentarios();
-			comentarios.forEach(coment -> {
-				if(coment.get(0).equals(username)) {
-					listaPosicionComentarios.add(comentarios.indexOf(coment));
-				}
-			});
-			return listaPosicionComentarios;
-		}
-		return null;
-	}
-	
-	@PutMapping("/suscripciones/comentarios/eliminar/{nombre}")
-	@ResponseStatus(code = HttpStatus.OK)
-	public ResponseEntity<?> eliminarComentario(@PathVariable("nombre") String nombre,
-			@RequestParam("posicion") int posicion){
-		if (sRepository.existsByNombre(nombre)) {
-			Suscripciones suscripciones = sRepository.findByNombre(nombre);
-			List<List<String>> comentarios = suscripciones.getComentarios();
-			try {
-				comentarios.remove(posicion);
-			} catch (Exception e) {
-				logger.info(e.getLocalizedMessage() + " : " + e.getMessage());
-				return ResponseEntity.badRequest().body("Error en eliminar el comentario");
+			if(cRepository.findByNombre(nombre) != null) {
+				List<Comentarios> listaComentarios = cRepository.findByNombre(nombre);
+				return listaComentarios;
 			}
-			suscripciones.setComentarios(comentarios);
-			sRepository.save(suscripciones);
-			return ResponseEntity.ok("Añadido exitosamente");
+		}
+		return new ArrayList<Comentarios>();
+	}
+	
+	@PutMapping("/suscripciones/editar/comentarios/{nombre}")
+	@ResponseStatus(code = HttpStatus.OK)
+	public ResponseEntity<?> editarComentario(@PathVariable("nombre") String nombre, @RequestBody Comentarios comentario){
+		if (sRepository.existsByNombre(nombre)) {
+			Optional<Comentarios> c = cRepository.findById(comentario.getId());
+			if(c.isPresent()) {
+				Comentarios co = c.get();
+				co.setComentario(comentario.getComentario());
+				
+				if(comentario.getFecha() == null && comentario.getTiempo() == null) {
+					Calendar cal = Calendar.getInstance();
+
+					String dia = Integer.toString(cal.get(Calendar.DATE));
+					String mes = Integer.toString(cal.get(Calendar.MONTH));
+					String annio = Integer.toString(cal.get(Calendar.YEAR));
+					String date = dia + "/" + mes + "/" + annio;
+
+					Integer hora = cal.get(Calendar.HOUR_OF_DAY);
+					Integer minutos = cal.get(Calendar.MINUTE);
+					String time = hora + ":" + minutos;
+					co.setFecha(date);
+					co.setTiempo(time);
+				} else {
+					co.setFecha(comentario.getFecha());
+					co.setTiempo(comentario.getTiempo());
+				}
+				
+				co.setUsername(comentario.getUsername());
+				co.setNombreProyecto(comentario.getNombreProyecto());
+				co.setAnonimo(comentario.isAnonimo());
+				
+				cRepository.save(co);
+				return ResponseEntity.ok("Comentario editado de forma Exitosa!");
+			} else {
+				return ResponseEntity.badRequest().body("id no existe");
+			}
 		}
 		return ResponseEntity.badRequest().body("Proyecto: " + nombre + " no existe");
 	}
 	
-	@PutMapping("/suscripciones/comentarios/eliminar/todos/{nombre}")
-	@ResponseStatus(code = HttpStatus.OK)
+	@DeleteMapping("/suscripciones/eliminar/comentarios/{nombre}")
+	public ResponseEntity<?> eliminarUnComentario(@PathVariable("nombre") String nombre,
+			@RequestParam("id") String id){
+		if (sRepository.existsByNombre(nombre)) {
+			cRepository.deleteById(id);
+			if (cbFactory.create("suscripciones").run(() -> eClient.eliminarComentarioId(id), e -> errorConexion(e))) {
+				logger.info("Comentario añadido correctamente, estadistica");
+			}
+			if (cbFactory.create("suscripciones").run(() -> nClient.eliminarComentarioId(id), e -> errorConexion(e))) {
+				logger.info("Comentario añadido correctamente, notificaciones");
+			}
+			return ResponseEntity.ok("Comentario eliminado del proyecto: " + nombre + " de forma Exitosa!");
+		}
+		return ResponseEntity.badRequest().body("Proyecto: " + nombre + " no existe");
+	}
+	
+	@DeleteMapping("/suscripciones/eliminar/todos/comentarios/{nombre}")
 	public ResponseEntity<?> eliminarTodosComentarios(@PathVariable("nombre") String nombre){
 		if (sRepository.existsByNombre(nombre)) {
-			Suscripciones suscripciones = sRepository.findByNombre(nombre);
-			suscripciones.setComentarios(new ArrayList<List<String>>());
-			sRepository.save(suscripciones);
-			return ResponseEntity.ok("Borrado exitosamente");
+			cRepository.deleteAllByNombre(nombre);
+			if (cbFactory.create("suscripciones").run(() -> eClient.eliminarAllComentario(nombre), e -> errorConexion(e))) {
+				logger.info("Comentario añadido correctamente, estadistica");
+			}
+			if (cbFactory.create("suscripciones").run(() -> nClient.eliminarAllComentario(nombre), e -> errorConexion(e))) {
+				logger.info("Comentario añadido correctamente, notificaciones");
+			}
+			return ResponseEntity.ok("Comentario eliminado del proyecto: " + nombre + " de forma Exitosa!");
 		}
 		return ResponseEntity.badRequest().body("Proyecto: " + nombre + " no existe");
 	}
