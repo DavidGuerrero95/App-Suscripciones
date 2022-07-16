@@ -8,10 +8,13 @@ import com.app.suscripciones.models.Suscripciones;
 
 public interface SuscripcionesRepository extends MongoRepository<Suscripciones, String> {
 
-	@RestResource(path = "buscar-name")
-	public Suscripciones findByNombre(@Param("name") String nombre);
+	@RestResource(path = "buscar-id")
+	public Suscripciones findByIdProyecto(@Param("idProyecto") Integer idProyecto);
 
-	@RestResource(path = "exists-name")
-	public Boolean existsByNombre(@Param("name") String nombre);
+	@RestResource(path = "exists-id")
+	public Boolean existsByIdProyecto(@Param("idProyecto") Integer idProyecto);
+
+	@RestResource(path = "delete-id")
+	public void deleteByIdProyecto(@Param("idProyecto") Integer idProyecto);
 
 }
