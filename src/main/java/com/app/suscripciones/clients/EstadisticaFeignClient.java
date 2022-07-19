@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 @FeignClient("app-estadistica")
 public interface EstadisticaFeignClient {
 
-	@PutMapping("/estadisticas/{idProyecto}/{formulario}/")
-	public Boolean obtenerEstadistica(@PathVariable("idProyecto") Integer idProyecto);
+	@PutMapping("/estadisticas/{idProyecto}/")
+	public Boolean obtenerEstadisticaProyecto(@PathVariable("idProyecto") Integer idProyecto);
 
 }

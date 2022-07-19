@@ -1,7 +1,10 @@
 package com.app.suscripciones.controllers;
 
 import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -73,10 +76,11 @@ public class SuscripcionesController {
 	}
 
 	// INSCRIBIRSE A UN PROYECTO
-	@PutMapping("/suscripciones/inscripcion/{idProyecto}")
+	@PutMapping("/suscripciones/inscripcion/verificar/{idProyecto}")
 	@ResponseStatus(code = HttpStatus.OK)
-	public void inscripcionesProyecto(@PathVariable("idProyecto") Integer idProyecto,
-			@RequestParam("username") String username) {
+	public Boolean inscripcionesProyecto(@PathVariable("idProyecto") Integer idProyecto,
+			@RequestParam("username") String username,
+			@RequestParam(value = "formulario", defaultValue = "1") Integer formulario) {
 		if (sRepository.existsByIdProyecto(idProyecto)) {
 			Suscripciones s = sRepository.findByIdProyecto(idProyecto);
 			if (!s.getSuscripciones().contains(username)) {
@@ -85,12 +89,13 @@ public class SuscripcionesController {
 				s.setSuscripciones(subs);
 				sRepository.save(s);
 
-				if (cbFactory.create("suscripciones").run(() -> eClient.obtenerEstadistica(idProyecto),
+				if (cbFactory.create("suscripciones").run(() -> eClient.obtenerEstadisticaProyecto(idProyecto),
 						e -> errorConexion(e))) {
 					log.info("Creacion Correcta");
 				}
-				nClient.enviarMensajeSuscripciones(idProyecto, username);
 			}
+			nClient.enviarMensajeSuscripciones(idProyecto, username);
+			return true;
 		}
 		throw new ResponseStatusException(HttpStatus.NOT_FOUND, "El proyecto no existe");
 	}
@@ -99,7 +104,8 @@ public class SuscripcionesController {
 	@PutMapping("/suscripciones/inscripcion/anular/{idProyecto}")
 	@ResponseStatus(code = HttpStatus.OK)
 	public Boolean anularInscripcionesProyecto(@PathVariable("idProyecto") Integer idProyecto,
-			@RequestParam("username") String username) {
+			@RequestParam("username") String username,
+			@RequestParam(value = "formulario", defaultValue = "1") Integer formulario) {
 		if (sRepository.existsByIdProyecto(idProyecto)) {
 			Suscripciones s = sRepository.findByIdProyecto(idProyecto);
 			if (s.getSuscripciones().contains(username)) {
@@ -108,7 +114,7 @@ public class SuscripcionesController {
 				s.setSuscripciones(subs);
 				sRepository.save(s);
 
-				if (cbFactory.create("suscripciones").run(() -> eClient.obtenerEstadistica(idProyecto),
+				if (cbFactory.create("suscripciones").run(() -> eClient.obtenerEstadisticaProyecto(idProyecto),
 						e -> errorConexion(e))) {
 					log.info("Obtencion Estadistica correcta");
 				}
@@ -185,8 +191,13 @@ public class SuscripcionesController {
 	public Boolean crearComentario(@PathVariable("idProyecto") Integer idProyecto,
 			@RequestBody @Validated Comentarios coment) {
 		if (sRepository.existsByIdProyecto(idProyecto)) {
+			Date n = new Date();
+			DateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
+			DateFormat formatter2 = new SimpleDateFormat("hh:mm:ss");
+			coment.setFecha(formatter.format(n));
+			coment.setTiempo(formatter2.format(n));
 			cRepository.save(coment);
-			if (cbFactory.create("suscripciones").run(() -> eClient.obtenerEstadistica(idProyecto),
+			if (cbFactory.create("suscripciones").run(() -> eClient.obtenerEstadisticaProyecto(idProyecto),
 					e -> errorConexion(e))) {
 				log.info("Obtencion Estadistica correcta");
 			}
@@ -205,8 +216,6 @@ public class SuscripcionesController {
 			if (c.isPresent()) {
 				Comentarios co = c.get();
 				co.setComentario(comentario.getComentario());
-				co.setFecha(comentario.getFecha());
-				co.setTiempo(comentario.getTiempo());
 				co.setUsername(comentario.getUsername());
 				co.setIdProyecto(comentario.getIdProyecto());
 				co.setAnonimo(comentario.getAnonimo());
@@ -276,7 +285,7 @@ public class SuscripcionesController {
 				if (!listaLikes.contains(usuario)) {
 					listaLikes.add(usuario);
 				}
-			} else if (likes == 2) {
+			} else if (likes == -1) {
 				if (listaLikes.contains(usuario))
 					listaLikes.remove(usuario);
 				if (!listaDislikes.contains(usuario)) {
@@ -287,7 +296,7 @@ public class SuscripcionesController {
 			s.setDislike(listaDislikes);
 			sRepository.save(s);
 
-			if (cbFactory.create("suscripciones").run(() -> eClient.obtenerEstadistica(idProyecto),
+			if (cbFactory.create("suscripciones").run(() -> eClient.obtenerEstadisticaProyecto(idProyecto),
 					e -> errorConexion(e))) {
 				log.info("Creacion Correcta");
 			}
@@ -307,10 +316,12 @@ public class SuscripcionesController {
 			Likes l = new Likes();
 			l.setLikes(s.getLike().size());
 			l.setDisLikes(s.getDislike().size());
-			if (s.getLike().contains(username) || s.getDislike().contains(username))
-				l.setUserLike(true);
+			if (s.getLike().contains(username))
+				l.setUserLike(1);
+			else if (s.getDislike().contains(username))
+				l.setUserLike(-1);
 			else
-				l.setUserLike(false);
+				l.setUserLike(0);
 			return l;
 		}
 		throw new ResponseStatusException(HttpStatus.NOT_FOUND, "El Proyecto no existe");

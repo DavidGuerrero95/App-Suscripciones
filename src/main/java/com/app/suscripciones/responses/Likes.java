@@ -9,6 +9,6 @@ public class Likes {
 
 	private Integer likes;
 	private Integer disLikes;
-	private Boolean userLike;
+	private Integer userLike;
 
 }

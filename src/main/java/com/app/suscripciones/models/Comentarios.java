@@ -1,7 +1,5 @@
 package com.app.suscripciones.models;
 
-import java.util.Date;
-
 import javax.validation.constraints.NotNull;
 
 import org.springframework.data.annotation.Id;
@@ -29,11 +27,9 @@ public class Comentarios {
 	@NotNull(message = "anonimo proyecto cannot be null")
 	private Boolean anonimo;
 
-	@NotNull(message = "fecha proyecto cannot be null")
-	private Date fecha;
+	private String fecha;
 
-	@NotNull(message = "tiempo proyecto cannot be null")
-	private Date tiempo;
+	private String tiempo;
 
 	@NotNull(message = "comentario proyecto cannot be null")
 	private String comentario;
